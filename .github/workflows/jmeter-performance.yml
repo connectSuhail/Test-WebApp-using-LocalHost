@@ -1,0 +1,39 @@
+name: JMeter Performance Test CI
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  jmeter_test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    # 1. Run JMeter Test and Generate JTL Results File
+    - name: Run JMeter Tests
+      uses: fjogeleit/http-request-action@master
+      with:
+        # Use the correct JMX file path
+        jmeter-test-file: 'test-plans/testwebapp-login-security.jmx'
+        # Crucial: Specify the location of the CSV data file relative to the runner
+        jmeter-properties: 'jmeter.csv.file=test-data/users.csv'
+        output-name: 'results.jtl'
+    
+    # 2. Generate the HTML Dashboard Report
+    - name: Generate JMeter HTML Report
+      id: report
+      uses: docker://justb4/jmeter-maven-plugin:6.12.0-3.3
+      with:
+        args: -g results.jtl -o dashboard-output
+    
+    # 3. Deploy the HTML Report to GitHub Pages
+    - name: Deploy Report to Pages
+      uses: peaceiris/actions-gh-pages@v3
+      if: success()
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./dashboard-output
+        publish_branch: gh-pages
